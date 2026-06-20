@@ -980,10 +980,17 @@ function renderSet(){
   $("#s-sprice").value=e.tiers.silver.price; $("#s-scap").value=e.tiers.silver.cap;
   $("#s-comm").value=e.defaultCommission;
 }
-function showEmpty(){const x=$("#empty"); if(x)x.classList.add("show");}
 function hideEmpty(){const x=$("#empty"); if(x)x.classList.remove("show");}
+function autoCreateEvent(){
+  const e={id:uid(),name:"Mon événement",location:"",date:"",status:"active",currency:"DH",
+    tiers:{gold:{price:200,cap:0},silver:{price:150,cap:0}},defaultCommission:10,
+    channels:[],expenses:[],tasks:[],sales:[],attendees:[],
+    stock:{gold:{printed:0,online:0},silver:{printed:0,online:0}},deposits:[]};
+  APP.events=[e]; APP.activeId=e.id;
+}
 function renderAll(){
-  if(!APP||!APP.events||!APP.events.length){ showEmpty(); if(APP)save(); return; }
+  if(!APP) return;
+  if(!APP.events||!APP.events.length) autoCreateEvent();
   hideEmpty();
   const e=ev();ensureStock(e);renderTop();renderDash();renderStockSummary();renderPOS();renderVentes();renderStock();renderJournal();renderDep();renderTasks();renderAtt();renderSet();save();}
 
