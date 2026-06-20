@@ -633,6 +633,11 @@ function ensureStock(e){
   }
 }
 function depositsByChannel(e){ const m={}; (e.deposits||[]).forEach(d=>{ const k=d.point; if(!m[k])m[k]={gold:0,silver:0}; m[k].gold+=(+d.gold||0); m[k].silver+=(+d.silver||0); }); return m; }
+/* Pour la table Ventes : la ligne EVENTS expose le « En ligne » de l'onglet Stock comme déposé. */
+function chanDeposited(e,c,dmap){
+  if(c.category==="platform"){ ensureStock(e); return {gold:+e.stock.gold.online||0, silver:+e.stock.silver.online||0}; }
+  const d=dmap[c.id]||{}; return {gold:+d.gold||0, silver:+d.silver||0};
+}
 function depositTotals(e){ let g=0,s=0; (e.deposits||[]).forEach(d=>{g+=(+d.gold||0);s+=(+d.silver||0);}); return {gold:g,silver:s}; }
 function stockOf(){
   const e=ev(); ensureStock(e);
@@ -650,7 +655,7 @@ function calc(){
   const dmap=depositsByChannel(e);
   let gdP=0,svP=0,gdI=0,svI=0,gross=0,comm=0,net=0,col=0,gdDep=0,svDep=0,unsold=0; const byCat={pdv:0,prospect:0,guichet:0,platform:0};
   e.channels.forEach(c=>{
-    const dg=(dmap[c.id]||0).gold||0, ds=(dmap[c.id]||0).silver||0;
+    const _d=chanDeposited(e,c,dmap); const dg=_d.gold, ds=_d.silver;
     gdDep+=dg; svDep+=ds;
     if(dg+ds>0) unsold+=(dg-c.gdsold)+(ds-c.svsold);
     if(c.category==="invitation"){gdI+=c.gdsold;svI+=c.svsold;return;}
@@ -744,7 +749,7 @@ function renderVentes(){
     const v=inv?0:c.gdsold*gp+c.svsold*sp;
     const net=inv?0:v*(1-(c.commission||0)/100);
     const rest=inv?0:net-(c.collected||0);
-    const dg=(dmap[c.id]||{}).gold||0, ds=(dmap[c.id]||{}).silver||0, dep=dg+ds;
+    const _d=chanDeposited(e,c,dmap); const dg=_d.gold, ds=_d.silver, dep=dg+ds;
     const stock=dep>0?dep-(c.gdsold+c.svsold):null;
     const tr=document.createElement("tr"); tr.dataset.id=c.id;
     tr.innerHTML=`
@@ -771,7 +776,7 @@ function renderVentesFooter(){
   const e=ev(), gp=e.tiers.gold.price, sp=e.tiers.silver.price, dmap=depositsByChannel(e);
   let fgddep=0,fsvdep=0,fgd=0,fsv=0,fstock=0,fval=0,fnet=0,fcol=0,frest=0;
   e.channels.forEach(c=>{ if(filter!=="all"&&c.category!==filter)return;
-    const dg=(dmap[c.id]||{}).gold||0, ds=(dmap[c.id]||{}).silver||0;
+    const _d=chanDeposited(e,c,dmap); const dg=_d.gold, ds=_d.silver;
     fgddep+=dg; fsvdep+=ds; fgd+=c.gdsold; fsv+=c.svsold;
     if(dg+ds>0) fstock+=(dg-c.gdsold)+(ds-c.svsold);
     if(c.category==="invitation")return;
@@ -786,7 +791,7 @@ function recalcRow(id){
   const e=ev(), c=e.channels.find(x=>x.id===id); if(!c) return;
   const tr=document.querySelector(`#tbVentes tr[data-id="${id}"]`); if(!tr){renderVentesFooter();return;}
   const sc=tr.querySelector('[data-f="stock"]');
-  if(sc){ const dd=(depositsByChannel(e)[c.id]||{}); const dep=(dd.gold||0)+(dd.silver||0); const st=dep>0?dep-(c.gdsold+c.svsold):null;
+  if(sc){ const _d=chanDeposited(e,c,depositsByChannel(e)); const dep=_d.gold+_d.silver; const st=dep>0?dep-(c.gdsold+c.svsold):null;
     sc.textContent=st==null?'—':fmt(st); sc.className="num"+(st!=null&&st<0?' neg':''); }
   if(c.category==="invitation"){renderVentesFooter();return;}
   const v=c.gdsold*e.tiers.gold.price+c.svsold*e.tiers.silver.price;
@@ -814,9 +819,14 @@ function renderDep(){
       <td><button class="rowdel" onclick="delExpense('${x.id}')"><svg class="ico" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td>`;
     tb.appendChild(tr);
   });
-  $("#fd-total").textContent=money(tot); $("#c-dep").textContent=e.expenses.length;
-  const k=calc(); $("#d-total").textContent=money(k.exp); $("#d-net").textContent=money(k.net);
-  $("#d-res").textContent=money(k.profit); $("#d-res").className="val "+(k.profit>=0?"pos":"neg");
+  recalcDep();
+}
+function recalcDep(){
+  const e=ev(); if(!e) return;
+  let tot=0; (e.expenses||[]).forEach(x=>tot+=(+x.amount||0));
+  setTxt("fd-total", money(tot)); setTxt("c-dep", (e.expenses||[]).length);
+  const k=calc(); setTxt("d-total", money(k.exp)); setTxt("d-net", money(k.net));
+  const r=$("#d-res"); if(r){ r.textContent=money(k.profit); r.className="val "+(k.profit>=0?"pos":"neg"); }
 }
 
 /* ---------- Journal des ventes (état journalier) ---------- */
@@ -1138,7 +1148,7 @@ function upd(id,f,v){const c=ev().channels.find(x=>x.id===id); if(!c)return;
   if(f==="name"||f==="category")c[f]=v; else c[f]=num(v); save();
   if(f==="category")renderVentes(); else recalcRow(id); refreshDerived();}
 function updExp(id,f,v){const x=ev().expenses.find(y=>y.id===id); if(!x)return;
-  x[f]=f==="amount"?num(v):v; save(); if(f==="amount"){renderDep();renderDash();}}
+  x[f]=f==="amount"?num(v):v; save(); if(f==="amount"){recalcDep();renderDash();}}
 function updTask(id,f,v){const t=ev().tasks.find(x=>x.id===id); if(!t)return; t[f]=v; save();
   if(f==="status"){renderTasks();} }
 function toggleUrg(id){const t=ev().tasks.find(x=>x.id===id); if(!t)return; t.urgency=t.urgency==="up"?"":"up"; save(); renderTasks();}
@@ -1193,7 +1203,7 @@ function exportCSV(){
   const dmapC=depositsByChannel(e);
   rows.push(["VENTES"]); rows.push(["Canal","Type","Gold déposés","Gold vendus","Silver déposés","Silver vendus","Invendus","Valeur brute","Commission %","Net dû","Encaissé","Reste"]);
   e.channels.forEach(c=>{const inv=c.category==="invitation"; const v=inv?0:c.gdsold*k.gp+c.svsold*k.sp; const net=v*(1-(c.commission||0)/100);
-    const dg=(dmapC[c.id]||{}).gold||0, ds=(dmapC[c.id]||{}).silver||0; const dep=dg+ds; const stock=dep>0?dep-(c.gdsold+c.svsold):"";
+    const _d=chanDeposited(e,c,dmapC); const dg=_d.gold, ds=_d.silver; const dep=dg+ds; const stock=dep>0?dep-(c.gdsold+c.svsold):"";
     rows.push([c.name,CATS[c.category],dg,c.gdsold,ds,c.svsold,stock,inv?0:v,inv?"":(c.commission||0),inv?0:Math.round(net),inv?0:(c.collected||0),inv?0:Math.round(net-(c.collected||0))]);});
   rows.push(["TOTAL","",k.gdDep,k.gdP+k.gdI,k.svDep,k.svP+k.svI,k.unsold,Math.round(k.gross),"",Math.round(k.net),Math.round(k.col),Math.round(k.outstanding)]);
   rows.push([]); rows.push(["DEPENSES"]); rows.push(["Poste","Catégorie","Montant"]);
