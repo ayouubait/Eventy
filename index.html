@@ -404,6 +404,7 @@
         <div class="spacer"></div>
         <button class="btn primary sm" onclick="openScan()"><svg class="ico" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>Scanner (check-in)</button>
         <button class="btn sm" onclick="openImport()">Importer</button>
+        <button class="btn sm" onclick="exportQRs()" title="Télécharge tous les QR (PNG) + un CSV pour Illustrator"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>QR (ZIP)</button>
         <button class="btn sm" onclick="addAttendee()">+ Ajouter</button>
       </div>
       <div class="tscroll"><table id="tAtt" style="min-width:760px">
@@ -497,6 +498,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 /* ============================================================
    COOLSHY — Gestion d'événements (multi-event, hors-ligne)
@@ -1018,7 +1020,12 @@ function renderAtt(){
     tb.appendChild(tr);
   });
 }
-function addAttendee(){ attList().push({id:uid(),name:"",tier:"",code:"",status:"out",by:"",at:""}); save(); renderAtt(); gotoTab("att");
+function nextCode(){
+  const list=attList(); let max=0;
+  list.forEach(a=>{ const m=String(a.code||"").match(/^EV-(\d+)$/); if(m) max=Math.max(max,+m[1]); });
+  return "EV-"+String(max+1).padStart(3,"0");
+}
+function addAttendee(){ attList().push({id:uid(),name:"",tier:"",code:nextCode(),status:"out",by:"",at:""}); save(); renderAtt(); gotoTab("att");
   const rows=$("#tbAtt").querySelectorAll("tr"); const last=rows[rows.length-1]; if(last){const i=last.querySelector("input"); if(i)i.focus();} }
 function updAtt(id,f,v){ const a=attList().find(x=>x.id===id); if(!a)return; a[f]=v; save(); }
 function delAtt(id){ const e=ev(); e.attendees=attList().filter(x=>x.id!==id); save(); renderAtt(); }
@@ -1062,14 +1069,38 @@ function openImport(){ $("#imp-text").value=""; $("#imp-msg").textContent=""; op
 
 /* QR */
 function showQR(id){ const a=attList().find(x=>x.id===id); if(!a)return;
-  const box=$("#qr-canvas"); box.innerHTML=""; setTxt("qr-name",a.name||"(sans nom)"); setTxt("qr-code",a.code||"(pas de code)");
-  const content=a.code||a.id;
+  if(!a.code){ a.code=nextCode(); save(); renderAtt(); }
+  const box=$("#qr-canvas"); box.innerHTML=""; setTxt("qr-name",a.name||"(sans nom)"); setTxt("qr-code",a.code);
+  const content=a.code;
   if(window.qrcode&&content){ try{ const qr=qrcode(0,'M'); qr.addData(content); qr.make(); const img=document.createElement("img"); img.id="qr-img"; img.src=qr.createDataURL(6,8); img.style.width="220px"; img.style.height="220px"; box.appendChild(img); }catch(e){ box.innerHTML='<span class="muted">QR indisponible</span>'; } }
   else box.innerHTML='<span class="muted">Génération QR disponible en ligne (connexion requise).</span>';
   openModal("qrmodal");
 }
 function printQR(){ const img=$("#qr-img"); if(!img){window.print();return;} const w=window.open("","_blank");
   w.document.write('<div style="text-align:center;font-family:sans-serif"><img src="'+img.src+'" style="width:300px"><h2>'+esc($("#qr-name").textContent)+'</h2><div>'+esc($("#qr-code").textContent)+'</div></div>'); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); }
+async function exportQRs(){
+  if(typeof JSZip==="undefined"||typeof qrcode==="undefined"){ toast("Bibliothèques QR/ZIP non chargées (connexion ?)"); return; }
+  // garantir un code pour tout le monde
+  let assigned=0; attList().forEach(a=>{ if(!a.code){ a.code=nextCode(); assigned++; } });
+  if(assigned){ save(); renderAtt(); }
+  const list=attList(); if(!list.length){ toast("Aucun participant"); return; }
+  toast("Génération des QR…");
+  const zip=new JSZip();
+  let csv="name,code,tier\n"; const safe=s=>String(s||"").replace(/[\\/:*?"<>|]/g,"_").trim();
+  for(const a of list){
+    try{ const qr=qrcode(0,'M'); qr.addData(a.code); qr.make();
+      const dataUrl=qr.createDataURL(10,12); const base64=dataUrl.split(',')[1];
+      const fname=(safe(a.code)||a.id)+(a.name?" - "+safe(a.name):"")+".png";
+      zip.file(fname,base64,{base64:true});
+      csv+='"'+String(a.name||"").replace(/"/g,'""')+'","'+a.code+'","'+(a.tier||"")+'"\n';
+    }catch(e){ console.error("qr",a.code,e); }
+  }
+  zip.file("participants.csv","﻿"+csv);
+  zip.file("LISEZ-MOI.txt","Eventy — codes QR\n\n• Un PNG par participant (nommé par code).\n• participants.csv : utilisez-le pour la fusion de données dans Illustrator/InDesign.\n• Le QR encode le code du billet ; lors du scan jour J, le check-in se fait sur ce même code.\n");
+  const blob=await zip.generateAsync({type:"blob"});
+  download("eventy-qr-codes-"+ev().name.replace(/\s+/g,"-")+".zip",blob,"application/zip");
+  toast(list.length+" QR exportés");
+}
 
 /* Modales génériques */
 function openModal(id){ const m=$("#"+id); if(m)m.classList.add("show"); }
@@ -1093,6 +1124,7 @@ function setScanResult(msg,cls){ const r=$("#scan-result"); if(r){ r.textContent
 function checkIn(code){
   const list=attList(); const norm=s=>String(s||"").trim();
   let a=list.find(x=>norm(x.code)===norm(code));
+  if(!a) a=list.find(x=>x.id===code);
   if(!a) a=list.find(x=>x.code && (norm(code).includes(norm(x.code))||norm(x.code).includes(norm(code))));
   if(!a){ setScanResult("Billet inconnu","err"); return; }
   if(a.status==="in"){ setScanResult("Déjà pointé : "+(a.name||a.code),"dup"); return; }
