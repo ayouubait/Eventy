@@ -147,6 +147,8 @@
   .stk-row .v{width:62px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
   .stk-row.head{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600}
   .stk-row.tot{font-weight:800;border-top:2px solid var(--line);border-bottom:0;margin-top:2px;padding-top:9px}
+  .stk-row.sub .nm{color:var(--muted);font-weight:500;padding-left:14px}
+  .stk-row.sub .v{color:var(--muted);font-weight:600}
   @media(max-width:880px){.jgrid{grid-template-columns:1fr}}
   .posgrid{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
   .posgrid .field{flex:1 1 130px;min-width:108px}
@@ -658,12 +660,21 @@ function depositTotals(e){ let g=0,s=0; (e.deposits||[]).forEach(d=>{g+=(+d.gold
 function stockOf(){
   const e=ev(); ensureStock(e);
   const st=e.stock, dep=depositTotals(e);
-  let dg=0,ds=0; (e.sales||[]).forEach(s=>{dg+=(+s.gold||0);ds+=(+s.silver||0);});
-  const g={printed:+st.gold.printed||0, online:+st.gold.online||0, deposited:dep.gold, sold:dg};
-  g.main=g.printed-g.online-g.deposited-g.sold;
-  const s={printed:+st.silver.printed||0, online:+st.silver.online||0, deposited:dep.silver, sold:ds};
-  s.main=s.printed-s.online-s.deposited-s.sold;
-  return {gold:g, silver:s};
+  // Ventes en caisse (POS, prospect+guichet)
+  let posG=0,posS=0; (e.sales||[]).forEach(s=>{posG+=(+s.gold||0);posS+=(+s.silver||0);});
+  // Ventes EVENTS (canaux platform)
+  let onG=0,onS=0; (e.channels||[]).forEach(c=>{ if(c.category==="platform"){onG+=(+c.gdsold||0); onS+=(+c.svsold||0);} });
+  const mk=(printed,online,deposited,soldDirect,onlineSold)=>{
+    const o={printed,online,deposited,soldDirect,onlineSold};
+    o.main=printed-deposited-soldDirect;          // physique restant en main
+    o.onlineLeft=online-onlineSold;                // digital restant chez EVENTS
+    o.totalLeft=o.main+o.onlineLeft;               // grand total à vendre
+    return o;
+  };
+  return {
+    gold:   mk(+st.gold.printed||0,   +st.gold.online||0,   dep.gold,   posG, onG),
+    silver: mk(+st.silver.printed||0, +st.silver.online||0, dep.silver, posS, onS)
+  };
 }
 
 function calc(){
@@ -932,13 +943,20 @@ function delDay(id){ const e=ev(); e.daily=(e.daily||[]).filter(x=>x.id!==id); s
 
 /* ---------- Stock : résumé + dépôts datés ---------- */
 function stockSummaryHTML(s){
-  const r=(lbl,g,sv,tot)=>`<div class="stk-row${tot?' tot':''}"><div class="nm">${lbl}</div><div class="v${g<0?' neg':''}">${fmt(g)}</div><div class="v${sv<0?' neg':''}">${fmt(sv)}</div></div>`;
-  return `<div class="stk-row head"><div class="nm">Stock billets</div><div class="v" style="color:var(--gold)">Gold</div><div class="v" style="color:var(--silver)">Silver</div></div>`
+  const r=(lbl,g,sv,cls)=>`<div class="stk-row${cls?' '+cls:''}"><div class="nm">${lbl}</div><div class="v${g<0?' neg':''}">${fmt(g)}</div><div class="v${sv<0?' neg':''}">${fmt(sv)}</div></div>`;
+  const hdr=lbl=>`<div class="stk-row head"><div class="nm">${lbl}</div><div class="v" style="color:var(--gold)">Gold</div><div class="v" style="color:var(--silver)">Silver</div></div>`;
+  return hdr("Physique — en main")
     + r("Total imprimé",s.gold.printed,s.silver.printed)
-    + r("En ligne (EVENTS)",s.gold.online,s.silver.online)
-    + r("Déposés (points)",s.gold.deposited,s.silver.deposited)
-    + r("Vendus en direct",s.gold.sold,s.silver.sold)
-    + r("En main",s.gold.main,s.silver.main,true);
+    + r("− Déposés (points)",s.gold.deposited,s.silver.deposited,"sub")
+    + r("− Vendus en caisse",s.gold.soldDirect,s.silver.soldDirect,"sub")
+    + r("Reste en main",s.gold.main,s.silver.main,"tot")
+    + `<div style="height:14px"></div>`
+    + hdr("Digital — EVENTS")
+    + r("Mis en ligne",s.gold.online,s.silver.online)
+    + r("− Vendus sur EVENTS",s.gold.onlineSold,s.silver.onlineSold,"sub")
+    + r("Reste en ligne",s.gold.onlineLeft,s.silver.onlineLeft,"tot")
+    + `<div style="height:14px"></div>`
+    + r("Total à vendre (main + ligne)",s.gold.totalLeft,s.silver.totalLeft,"tot");
 }
 function renderStockSummary(){ setHtml("dash-stock",stockSummaryHTML(stockOf())); }
 function pdvOptions(curId){
