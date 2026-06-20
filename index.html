@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Eventy — Gestion d'événements</title>
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="googlebot" content="noindex, nofollow">
 <style>
   :root{
     --bg:#0f1117; --surface:#171a22; --surface-2:#1e222c; --line:#2a2f3a;
@@ -482,7 +484,7 @@
 <div class="toast" id="toast"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span id="toast-msg"></span></div>
 <button id="updpill" onclick="cloudRefresh()"><svg class="ico" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.65 4.36A9 9 0 0 0 20.5 15"/></svg>Mises à jour de l'équipe — actualiser</button>
 <div id="empty"><div class="box"><div class="lg">E</div><h2>Bienvenue sur Eventy</h2><p>Aucun événement pour l'instant. Créez votre premier événement pour suivre les ventes, le stock, les dépenses et les tâches.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn primary" onclick="newEvent()"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Créer un événement</button><label class="btn" style="cursor:pointer">Importer une sauvegarde<input type="file" accept=".json" style="display:none" onchange="importJSON(event)"></label></div></div></div>
-<div id="gate"><div class="box"><div class="lg">E</div><div style="font-weight:700;font-size:15px">Eventy — Connexion</div><div class="note" style="margin-top:6px">Connectez-vous avec votre compte.</div><input type="text" id="gate-user" placeholder="Utilisateur" autocomplete="username"><input type="password" id="gate-pw" placeholder="Mot de passe" autocomplete="current-password" style="margin-top:0"><div id="gate-msg"></div><button class="btn primary" id="gate-go" style="width:100%;justify-content:center;margin-top:8px">Se connecter</button><div style="margin-top:14px"><a onclick="gateLocal()" style="cursor:pointer;font-size:12px;color:var(--muted);text-decoration:underline">Continuer en local (sans compte)</a></div></div></div>
+<div id="gate"><div class="box"><div class="lg">E</div><div style="font-weight:700;font-size:15px">Eventy — Connexion</div><div class="note" style="margin-top:6px">Connectez-vous avec votre compte.</div><input type="text" id="gate-user" placeholder="Utilisateur" autocomplete="username"><input type="password" id="gate-pw" placeholder="Mot de passe" autocomplete="current-password" style="margin-top:0"><div id="gate-msg"></div><button class="btn primary" id="gate-go" style="width:100%;justify-content:center;margin-top:8px">Se connecter</button><div id="gate-local-link" style="margin-top:14px"><a onclick="gateLocal()" style="cursor:pointer;font-size:12px;color:var(--muted);text-decoration:underline">Continuer en local (sans compte)</a></div></div></div>
 
 <!-- Modale QR -->
 <div id="qrmodal" class="modal"><div class="mbox" style="text-align:center"><div id="qr-canvas" style="margin:0 auto 12px;display:grid;place-items:center;min-height:200px"></div><div id="qr-name" style="font-weight:700"></div><div id="qr-code" class="muted" style="font-size:12px;word-break:break-all;margin-top:4px"></div><div style="display:flex;gap:8px;justify-content:center;margin-top:16px"><button class="btn sm" onclick="printQR()">Imprimer</button><button class="btn primary sm" onclick="closeModal('qrmodal')">Fermer</button></div></div></div>
@@ -508,7 +510,7 @@
    En mode partagé, une connexion (utilisateur + mot de passe) est demandée.
 ==================================================================== */
 const CONFIG = {
-  API_URL: "",            // ex: "https://votre-domaine.com/api.php"
+  API_URL: "https://eventy.hoe.ma/api.php",
   POLL_SECONDS: 8         // fréquence de synchro auto en mode partagé
 };
 const KEY="coolshy_app_v3", LEGACY="coolshy_event_v2", AUTHKEY="eventy_auth";
@@ -1255,6 +1257,7 @@ function renderCloudChip(){
 function showLogin(cb){
   const g=$("#gate"); g.classList.add("show"); setTimeout(()=>{const u=$("#gate-user"); if(u)u.focus();},50);
   $("#gate-msg").textContent="";
+  const localLink=$("#gate-local-link"); if(localLink) localLink.style.display=CONFIG.API_URL?"none":"";
   const go=async()=>{
     const u=$("#gate-user").value.trim(), p=$("#gate-pw").value;
     if(!u||!p){ $("#gate-msg").textContent="Remplissez les deux champs"; return; }
