@@ -53,7 +53,7 @@
   section.page.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-  .kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
   .kgrid.sec{margin-top:14px}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 17px;box-shadow:var(--sh)}
   .kpi .lbl{font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
@@ -168,7 +168,32 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .toast.ok{border-color:var(--green-soft)} .toast .ico{color:var(--green)}
 
-  @media(max-width:880px){.kgrid{grid-template-columns:repeat(2,1fr)}.twocol,.fgrid{grid-template-columns:1fr}}
+  @media(max-width:880px){.twocol,.fgrid{grid-template-columns:1fr}}
+  @media(max-width:640px){
+    .wrap{padding:0 14px}
+    .top-in{padding:10px 0;gap:8px;row-gap:8px}
+    .brand{font-size:15px} .logo{width:26px;height:26px;font-size:13px}
+    .evbar{flex:1 1 100%;order:3} .evsel{flex:1;min-width:0}
+    .btn.sm,.btn{padding:6px 9px;font-size:12px}
+    .btn .lbl-hide,.btn span.lbl-hide{display:none}
+    nav.tabs{margin-top:12px}
+    .tab{padding:9px 11px;font-size:12.5px}
+    .tab svg{width:13px;height:13px}
+    .tbar{padding:11px 13px;gap:8px}
+    .tbar .ttl{flex:1 1 100%;font-size:13px}
+    .tbar .seg{flex:1 1 100%}
+    .tbar input[type=text]{flex:1 1 100%}
+    .addbar{padding:10px 13px;gap:8px}
+    .kpi{padding:13px 14px}
+    .kpi .val{font-size:20px}
+    .kpi .lbl{font-size:10.5px}
+    .stk-row{font-size:12.5px}
+    .stk-row .v{width:54px}
+    .mbox{padding:18px}
+    section.page{padding-top:16px}
+    .panel h3,.card h3{font-size:13px}
+    .fgrid{gap:10px}
+  }
   @media print{header.top,nav.tabs,.addbar,.rowdel,.tbar .seg,.no-print{display:none!important}body{background:#fff;color:#000;padding:0}.card,.tablecard{box-shadow:none;border-color:#ccc}section.page{display:block!important}}
 
   .cloudchip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);white-space:nowrap}
@@ -243,9 +268,9 @@
     </div>
     <div class="spacer"></div>
     <button class="btn ghost sm" onclick="toggleTheme()" title="Changer de thème (clair / sombre)"><svg class="ico" id="theme-ico" viewBox="0 0 24 24"></svg></button>
-    <button class="btn ghost sm" onclick="window.print()"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>Imprimer</button>
-    <button class="btn ghost sm" onclick="exportCSV()"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Excel/CSV</button>
-    <button class="btn ghost sm" onclick="exportJSON()"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Sauver</button>
+    <button class="btn ghost sm" onclick="window.print()" title="Imprimer"><svg class="ico" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg><span class="lbl-hide">Imprimer</span></button>
+    <button class="btn ghost sm" onclick="exportCSV()" title="Exporter Excel/CSV"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg><span class="lbl-hide">Excel/CSV</span></button>
+    <button class="btn ghost sm" onclick="exportJSON()" title="Sauvegarder"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="lbl-hide">Sauver</span></button>
   </div>
 </header>
 
@@ -375,7 +400,7 @@
 
   <!-- DEPENSES -->
   <section class="page" id="pg-dep">
-    <div class="kgrid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="kgrid">
       <div class="card kpi"><div class="lbl">Total dépenses</div><div class="val neg" id="d-total">—</div></div>
       <div class="card kpi"><div class="lbl">Revenu net</div><div class="val" id="d-net">—</div></div>
       <div class="card kpi"><div class="lbl">Résultat</div><div class="val" id="d-res">—</div><div class="sub">net − dépenses</div></div>
@@ -393,7 +418,7 @@
 
   <!-- PARTICIPANTS -->
   <section class="page" id="pg-att">
-    <div class="kgrid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kgrid">
       <div class="card kpi hero"><div class="lbl">Présents</div><div class="val pos" id="a-in">—</div><div class="sub" id="a-in-sub"></div></div>
       <div class="card kpi"><div class="lbl">Billets</div><div class="val" id="a-total">—</div><div class="sub" id="a-total-sub">par catégorie</div></div>
       <div class="card kpi"><div class="lbl">Restants à pointer</div><div class="val" id="a-out">—</div><div class="sub">pas encore arrivés</div></div>
