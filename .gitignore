@@ -1,0 +1,21 @@
+# --- Secrets (jamais commiter) ---
+config.php
+*.local.php
+.env
+.env.*
+!.env.example
+
+# --- Local / éditeurs ---
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Sauvegardes / exports / logs ---
+*.log
+*.bak
+*.swp
+backup-*.json
+eventy-sauvegarde*.json
+*.csv
