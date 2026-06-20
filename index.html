@@ -1184,8 +1184,28 @@ function closeModal(id){ const m=$("#"+id); if(m)m.classList.remove("show"); }
 
 /* Scan caméra + check-in */
 let _scanner=null, _lastScan={code:"",t:0};
+/* Audio : feedback sonore + vibration sur scan */
+let _audioCtx=null;
+function ac(){ try{ if(!_audioCtx) _audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(_audioCtx.state==="suspended") _audioCtx.resume(); return _audioCtx; }catch(e){ return null; } }
+function beep(freqs,dur,type,vol){
+  const ctx=ac(); if(!ctx) return;
+  freqs.forEach((f,i)=>{ try{
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type||"sine"; o.frequency.value=f; o.connect(g); g.connect(ctx.destination);
+    const t0=ctx.currentTime+i*(dur/1000); const v=vol||0.18;
+    g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(v,t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur/1000);
+    o.start(t0); o.stop(t0+dur/1000+0.02);
+  }catch(e){} });
+}
+function vibrate(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
+function sndOk(){  beep([880,1320],110,"sine",0.18);    vibrate(60); }
+function sndDup(){ beep([660],180,"sine",0.15);          vibrate([40,40,40]); }
+function sndErr(){ beep([330,220],180,"square",0.12);    vibrate(150); }
+
 function openScan(){
   const m=$("#scanmodal"); m.classList.add("show");
+  ac(); // pré-initialise l'audio sur le geste utilisateur (ouverture modale)
   setScanResult("Visez le QR du billet…","");
   if(!window.Html5Qrcode){ setScanResult("Scanner disponible uniquement en ligne (caméra = HTTPS).","err"); return; }
   try{
@@ -1202,10 +1222,10 @@ function checkIn(code){
   let a=list.find(x=>norm(x.code)===norm(code));
   if(!a) a=list.find(x=>x.id===code);
   if(!a) a=list.find(x=>x.code && (norm(code).includes(norm(x.code))||norm(x.code).includes(norm(code))));
-  if(!a){ setScanResult("Billet inconnu","err"); return; }
-  if(a.status==="in"){ setScanResult("Déjà pointé : "+(a.name||a.code),"dup"); return; }
+  if(!a){ sndErr(); setScanResult("Billet inconnu","err"); return; }
+  if(a.status==="in"){ sndDup(); setScanResult("Déjà pointé : "+(a.name||a.code),"dup"); return; }
   a.status="in"; a.by=_user||"local"; a.at=nowISO(); save(); renderAtt();
-  setScanResult("✓ "+(a.name||a.code)+(a.tier?" · "+a.tier:""),"ok");
+  sndOk(); setScanResult("✓ "+(a.name||a.code)+(a.tier?" · "+a.tier:""),"ok");
 }
 function refreshDerived(){renderDash();renderStockSummary();renderJournal();}
 
